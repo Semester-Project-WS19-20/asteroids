@@ -9,6 +9,9 @@
 #include "player.h"
 #include "asteroids.h"
 
+// Import "emscripten_set_main_loop()" and "emscripten_cancel_main_loop()"
+#include "emscripten.h"
+
 #define ASTEROIDS 27
 #define LIVES 3
 
@@ -21,7 +24,130 @@ uint32_t* pixels = NULL;			//The pixel buffer to draw to
 struct asteroid asteroids[ASTEROIDS];		//The asteroids
 struct player p;				//The player
 struct player lives[LIVES];			//Player lives left
-    
+
+
+// Main game loop
+void mainloop()
+{
+	// Moved these variables
+	int sleep = 0;
+	int quit = 0;
+	SDL_Event event;
+	Uint32 next_game_tick = SDL_GetTicks();
+
+	// Main loop code
+	//check for new events every frame
+	SDL_PumpEvents();
+
+	const Uint8 *state = SDL_GetKeyboardState(NULL);
+
+	if (state[SDL_SCANCODE_ESCAPE]) {
+		quit = 1;
+	}
+		
+	if (state[SDL_SCANCODE_UP]) {
+		struct vector2d thrust = get_direction(&p);
+		multiply_vector(&thrust, .06);
+		apply_force(&p.velocity, thrust);
+	}
+	
+	if (state[SDL_SCANCODE_LEFT]) {
+		rotate_player(&p, -4);
+	}
+
+	if (state[SDL_SCANCODE_RIGHT]) {
+		rotate_player(&p, 4);
+	}
+
+	while (SDL_PollEvent(&event)) {
+		switch(event.type) {
+			case SDL_KEYDOWN:
+				switch( event.key.keysym.sym ) {
+					case SDLK_SPACE:
+						if (p.lives > 0) {
+							shoot_bullet(&p);
+						}
+						break; 
+				}
+		}
+	}
+
+	//draw to the pixel buffer
+	clear_pixels(pixels, 0x00000000);
+	draw_asteroids(pixels, asteroids, ASTEROIDS);
+	update_player(&p);
+	bounds_player(&p);
+	bounds_asteroids(asteroids, ASTEROIDS);
+
+	int res = collision_asteroids(asteroids, ASTEROIDS, &p.location, p.hit_radius);
+
+	if (res != -1) {
+		p.lives--;
+		p.location.x = 0;
+		p.location.y = 0;
+		p.velocity.x = 0;
+		p.velocity.y = 0;
+
+		int i = LIVES - 1;
+		for ( i = LIVES; i >= 0; i--) {
+			if(lives[i].lives > 0) {
+				lives[i].lives = 0;
+				break;
+			}
+		}
+	}
+	draw_player(pixels, &p);
+	draw_player(pixels, &lives[0]);
+	draw_player(pixels, &lives[1]);
+	draw_player(pixels, &lives[2]);
+	
+	int i = 0;
+	struct vector2d translation = {-SCREEN_WIDTH / 2, -SCREEN_HEIGHT / 2};
+
+	for (i = 0; i < BULLETS; i++) {
+		//only check for collision for bullets that are shown on screen
+		if (p.bullets[i].alive == TRUE) {
+			//convert bullet screen space location to world space to compare
+			//with asteroids world space to detect a collision
+			struct vector2d world = add_vector_new(&p.bullets[i].location, &translation);
+			int index = collision_asteroids(asteroids, ASTEROIDS, &world, 1);
+			
+			//collision occured
+			if (index != -1) {
+				asteroids[index].alive = 0;
+				p.bullets[i].alive = FALSE;
+
+				if (asteroids[index].size != SMALL) {
+					spawn_asteroids(asteroids, ASTEROIDS, asteroids[index].size, asteroids[index].location);
+				}
+			}
+		}
+	}
+	
+	update_asteroids(asteroids, ASTEROIDS);
+
+	//draw buffer to the texture representing the screen
+	SDL_UpdateTexture(screen, NULL, pixels, SCREEN_WIDTH * sizeof (Uint32));
+
+	//draw to the screen
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, screen, NULL, NULL);
+	SDL_RenderPresent(renderer);
+
+	if(quit == 1) {
+		emscripten_cancel_main_loop();
+
+		//free the screen buffer
+		free(pixels);
+		
+		//Destroy window 
+		SDL_DestroyWindow(window);
+
+		//Quit SDL subsystems 
+		SDL_Quit(); 
+	}
+}
+
 int main (int argc, char* args[]) {
 
 	//SDL Window setup
@@ -59,150 +185,8 @@ int main (int argc, char* args[]) {
 	init_player(&p);
 	init_asteroids(asteroids, ASTEROIDS);
 
-	int sleep = 0;
-	int quit = 0;
-	SDL_Event event;
-	Uint32 next_game_tick = SDL_GetTicks();
-	
-	//render loop
-	while(quit == 0) {
-		
-		//check for new events every frame
-		SDL_PumpEvents();
+	emscripten_set_main_loop(mainloop, 0, 1);
 
-		const Uint8 *state = SDL_GetKeyboardState(NULL);
-		
-		if (state[SDL_SCANCODE_ESCAPE]) {
-		
-			quit = 1;
-		}
-			
-		if (state[SDL_SCANCODE_UP]) {
-
-			struct vector2d thrust = get_direction(&p);
-			multiply_vector(&thrust, .06);
-			apply_force(&p.velocity, thrust);
-		}
-		
-		if (state[SDL_SCANCODE_LEFT]) {
-			
-			rotate_player(&p, -4);
-		}
-
-		if (state[SDL_SCANCODE_RIGHT]) {
-			
-			rotate_player(&p, 4);
-		}
-
-		while (SDL_PollEvent(&event)) {
-		
-			switch(event.type) {
-					
-				case SDL_KEYDOWN:
-					
-					switch( event.key.keysym.sym ) {
-					
-						case SDLK_SPACE:
-							
-							if (p.lives > 0) {
-								
-								shoot_bullet(&p);
-							}
-
-							break; 
-					}
-			}
-		}
-
-		//draw to the pixel buffer
-		clear_pixels(pixels, 0x00000000);
-		draw_player(pixels, &p);
-		draw_player(pixels, &lives[0]);
-		draw_player(pixels, &lives[1]);
-		draw_player(pixels, &lives[2]);
-		draw_asteroids(pixels, asteroids, ASTEROIDS);
-		update_player(&p);
-		bounds_player(&p);
-		bounds_asteroids(asteroids, ASTEROIDS);
-
-		int res = collision_asteroids(asteroids, ASTEROIDS, &p.location, p.hit_radius);
-
-		if (res != -1) {
-			
-			p.lives--;
-			p.location.x = 0;
-			p.location.y = 0;
-			p.velocity.x = 0;
-			p.velocity.y = 0;
-
-			int i = LIVES - 1;
-
-			for ( i = LIVES; i >= 0; i--) {
-				
-				if(lives[i].lives > 0) {
-					
-					lives[i].lives = 0;
-					break;
-				}
-			}
-		}
-		
-		int i = 0;
-		struct vector2d translation = {-SCREEN_WIDTH / 2, -SCREEN_HEIGHT / 2};
-
-		for (i = 0; i < BULLETS; i++) {
-				
-			//only check for collision for bullets that are shown on screen
-			if (p.bullets[i].alive == TRUE) {
-				
-				//convert bullet screen space location to world space to compare
-				//with asteroids world space to detect a collision
-				struct vector2d world = add_vector_new(&p.bullets[i].location, &translation);
-				int index = collision_asteroids(asteroids, ASTEROIDS, &world, 1);
-				
-				//collision occured
-				if (index != -1) {
-					
-					asteroids[index].alive = 0;
-					p.bullets[i].alive = FALSE;
-
-					if (asteroids[index].size != SMALL) {
-						
-						spawn_asteroids(asteroids, ASTEROIDS, asteroids[index].size, asteroids[index].location);
-					}
-				}
-			}
-		}
-		
-		update_asteroids(asteroids, ASTEROIDS);
-
-		//draw buffer to the texture representing the screen
-		SDL_UpdateTexture(screen, NULL, pixels, SCREEN_WIDTH * sizeof (Uint32));
-
-		//draw to the screen
-		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, screen, NULL, NULL);
-		SDL_RenderPresent(renderer);
-				
-		//time it takes to render 1 frame in milliseconds
-		next_game_tick += 1000 / 60;
-		sleep = next_game_tick - SDL_GetTicks();
-	
-		if( sleep >= 0 ) {
-            				
-			SDL_Delay(sleep);
-		}
-	}
-
-	//free the screen buffer
-	free(pixels);
-	
-	//Destroy window 
-	SDL_DestroyWindow(window);
-
-	//Quit SDL subsystems 
-	SDL_Quit(); 
-	 
 	return 0;
 }
 
@@ -249,4 +233,3 @@ int init(int width, int height) {
 
 	return 0;
 }
-
