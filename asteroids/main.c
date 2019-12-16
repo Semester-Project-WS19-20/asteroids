@@ -30,10 +30,8 @@ struct player lives[LIVES];			//Player lives left
 void mainloop()
 {
 	// Moved these variables
-	int sleep = 0;
 	int quit = 0;
 	SDL_Event event;
-	Uint32 next_game_tick = SDL_GetTicks();
 
 	// Main loop code
 	//check for new events every frame
