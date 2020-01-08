@@ -2,7 +2,8 @@
 //main.c
 
 //Using SDL and standard IO
-#include <SDL.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "renderer.h"
@@ -14,6 +15,8 @@
 
 #define ASTEROIDS 27
 #define LIVES 3
+#define BACKGROUND_COLOR 0x00000000
+#define LINE_COLOR 0x00885500
 
 int init(int width, int height);
 
@@ -25,6 +28,25 @@ struct asteroid asteroids[ASTEROIDS];		//The asteroids
 struct player p;				//The player
 struct player lives[LIVES];			//Player lives left
 
+void drawLives(SDL_Renderer* renderer, const char* fileName, struct player lives[], int size) {
+  SDL_Surface *image = IMG_Load(fileName);
+  if (!image) {
+     printf("IMG_Load: %s\n", IMG_GetError());
+  }
+
+  int i = 0;
+  for (i = 0; i < size; i++) {
+	  struct player * l = &lives[i];
+	  if (l->lives > 0) {
+		//   printf("%i, %i\n", (int)l.world_vert[0].x, (int)l.world_vert[0].y);
+		  SDL_Rect dest = {.x = (int)l->world_vert[0].x, .y = (int)l->world_vert[0].y, .w = 30, .h = 30};
+		  SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, image);
+		  SDL_RenderCopy (renderer, tex, NULL, &dest);
+		  SDL_DestroyTexture (tex);
+	  }
+  }
+  SDL_FreeSurface (image);
+}
 
 // Main game loop
 void mainloop()
@@ -71,8 +93,8 @@ void mainloop()
 	}
 
 	//draw to the pixel buffer
-	clear_pixels(pixels, 0x00000000);
-	draw_asteroids(pixels, asteroids, ASTEROIDS);
+	clear_pixels(pixels, BACKGROUND_COLOR);
+	draw_asteroids(pixels, asteroids, ASTEROIDS, LINE_COLOR);
 	update_player(&p);
 	bounds_player(&p);
 	bounds_asteroids(asteroids, ASTEROIDS);
@@ -94,10 +116,10 @@ void mainloop()
 			}
 		}
 	}
-	draw_player(pixels, &p);
-	draw_player(pixels, &lives[0]);
-	draw_player(pixels, &lives[1]);
-	draw_player(pixels, &lives[2]);
+	draw_player(pixels, &p, LINE_COLOR);
+	// draw_player(pixels, &lives[0]);
+	// draw_player(pixels, &lives[1]);
+	// draw_player(pixels, &lives[2]);
 	
 	int i = 0;
 	struct vector2d translation = {-SCREEN_WIDTH / 2, -SCREEN_HEIGHT / 2};
@@ -126,10 +148,11 @@ void mainloop()
 
 	//draw buffer to the texture representing the screen
 	SDL_UpdateTexture(screen, NULL, pixels, SCREEN_WIDTH * sizeof (Uint32));
-
+	
 	//draw to the screen
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, screen, NULL, NULL);
+	drawLives(renderer, "assets/HFU_Asteroid.png", lives, LIVES);
 	SDL_RenderPresent(renderer);
 
 	if(quit == 1) {
@@ -172,11 +195,11 @@ int main (int argc, char* args[]) {
 		}
 
 		//convert screen space vector into world space
-		struct vector2d top_left = {20 + offset, 20};
+		struct vector2d top_left = {10 + offset, 10};
 		add_vector(&top_left, &translation);
 		lives[i].location = top_left;
 		update_player(&lives[i]);
-		offset += 20;
+		offset += 40;
 	}
 
 	//set up player and asteroids in world space

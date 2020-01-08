@@ -28,7 +28,7 @@ struct player {
 
 void init_player(struct player* p);
 
-void draw_player(uint32_t* pixel_buffer, struct player* p);
+void draw_player(uint32_t* pixel_buffer, struct player* p, uint32_t color);
 
 void shoot_bullet(struct player* p);
 
