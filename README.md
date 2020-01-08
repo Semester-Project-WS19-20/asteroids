@@ -1,7 +1,7 @@
 ## Guide to build and run asteroids
 
 build asteroids:
-`emcc -o out/asteroids.html asteroids/*.c -Wall -g -lm -s USE_SDL=2`
+`emcc asteroids/*.c -O2 -Wall -g -lm -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s SDL2_IMAGE_FORMATS='["png"]' --preload-file assets -o out/asteroids.html`
 
 run asteroids:
 `emrun --no_browser --port 8080 out/asteroids.html`
