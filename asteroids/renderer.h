@@ -5,8 +5,8 @@
 #include <math.h>
 
 //Screen dimension constants
-#define SCREEN_WIDTH 640
-#define SCREEN_HEIGHT 480
+#define SCREEN_WIDTH 800 //640
+#define SCREEN_HEIGHT 480 //480
 
 //assing a colour to a single pixel
 int draw_pixel(uint32_t* pixel_buffer, int x, int y, uint32_t colour);

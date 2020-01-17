@@ -6,6 +6,7 @@
 #include <SDL2/SDL_image.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "renderer.h"
 #include "player.h"
 #include "asteroids.h"
@@ -19,6 +20,7 @@
 #define LINE_COLOR 0x00885500
 
 int init(int width, int height);
+void drawLives(SDL_Renderer* renderer, const char* fileName, struct player lives[], int size);
 
 SDL_Window* window = NULL;			//The window we'll be rendering to
 SDL_Renderer *renderer;				//The renderer SDL will use to draw to the screen
@@ -27,26 +29,8 @@ uint32_t* pixels = NULL;			//The pixel buffer to draw to
 struct asteroid asteroids[ASTEROIDS];		//The asteroids
 struct player p;				//The player
 struct player lives[LIVES];			//Player lives left
-
-void drawLives(SDL_Renderer* renderer, const char* fileName, struct player lives[], int size) {
-  SDL_Surface *image = IMG_Load(fileName);
-  if (!image) {
-     printf("IMG_Load: %s\n", IMG_GetError());
-  }
-
-  int i = 0;
-  for (i = 0; i < size; i++) {
-	  struct player * l = &lives[i];
-	  if (l->lives > 0) {
-		//   printf("%i, %i\n", (int)l.world_vert[0].x, (int)l.world_vert[0].y);
-		  SDL_Rect dest = {.x = (int)l->world_vert[0].x, .y = (int)l->world_vert[0].y, .w = 30, .h = 30};
-		  SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, image);
-		  SDL_RenderCopy (renderer, tex, NULL, &dest);
-		  SDL_DestroyTexture (tex);
-	  }
-  }
-  SDL_FreeSurface (image);
-}
+int randomNumber;					//Random number to pick a different endscreen
+int destroyedAsteroids;				//Amount of destroyed small asteroids, counted to end the game;
 
 // Main game loop
 void mainloop()
@@ -139,6 +123,8 @@ void mainloop()
 
 				if (asteroids[index].size != SMALL) {
 					spawn_asteroids(asteroids, ASTEROIDS, asteroids[index].size, asteroids[index].location);
+				} else {
+					destroyedAsteroids = destroyedAsteroids + 1;
 				}
 			}
 		}
@@ -166,6 +152,20 @@ void mainloop()
 
 		//Quit SDL subsystems 
 		SDL_Quit(); 
+	}
+	
+	if (p.lives == 0 || destroyedAsteroids == ASTEROIDS) {
+		char path[13];
+		snprintf(path, 13, "assets/%d.png", randomNumber);
+		SDL_Surface *image = IMG_Load(path);
+		if (!image) {
+			printf("IMG_Load: %s\n", IMG_GetError());
+		}
+		SDL_Rect dest = {.x = 0, .y = 0, .w = SCREEN_WIDTH, .h = SCREEN_HEIGHT};
+		SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, image);
+		SDL_RenderCopy (renderer, tex, NULL, &dest);
+		SDL_DestroyTexture (tex);
+		SDL_FreeSurface (image);
 	}
 }
 
@@ -212,7 +212,9 @@ int main (int argc, char* args[]) {
 }
 
 int init(int width, int height) {
-
+	srand(time(0));
+	randomNumber = (rand() % 4) + 1;
+	destroyedAsteroids = 0;
 	//Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 
@@ -253,4 +255,23 @@ int init(int width, int height) {
 	}
 
 	return 0;
+}
+
+void drawLives(SDL_Renderer* renderer, const char* fileName, struct player lives[], int size) {
+  SDL_Surface *image = IMG_Load(fileName);
+  if (!image) {
+     printf("IMG_Load: %s\n", IMG_GetError());
+  }
+
+  int i = 0;
+  for (i = 0; i < size; i++) {
+	  struct player * l = &lives[i];
+	  if (l->lives > 0) {
+		  SDL_Rect dest = {.x = (int)l->world_vert[0].x, .y = (int)l->world_vert[0].y, .w = 30, .h = 30};
+		  SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, image);
+		  SDL_RenderCopy (renderer, tex, NULL, &dest);
+		  SDL_DestroyTexture (tex);
+	  }
+  }
+  SDL_FreeSurface (image);
 }
