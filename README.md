@@ -1,3 +1,7 @@
+## Prerequisite
+Same prerequisites as here:
+https://github.com/Semester-Project-WS19-20/em-dosbox#prerequisites
+
 ## Guide to build and run asteroids
 
 build asteroids:
